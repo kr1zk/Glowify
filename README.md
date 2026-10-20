@@ -1,32 +1,34 @@
-<h1 align="center"> ✨ Glowify Theme Spicetify ✨ </h1>
+<div align="center">
 
-<p align="center">
-  <b>A modern, rounded and glowified theme for spicetify</b><br>
-</p>
+# Glowify
 
-## Contents
+**A modern, rounded and glowified theme for spicetify.**
 
-<!-- toc -->
+[![Spotify 1.3.6](https://img.shields.io/badge/Spotify-1.3.6-1DB954?logo=spotify&logoColor=white)](https://www.spotify.com/download/)
+[![Spicetify](https://img.shields.io/badge/Spicetify-2.45.3-F5C2E7)](https://spicetify.app/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue)](LICENSE.txt)
 
-- [Introduction](#introduction)
-- [Theme screenshots](#theme-screenshots)
-- [Features](#features)
-- [Installation](#installation)
-<!-- tocstop -->
+[Installation](#installation) · [Credits](#credits)
 
-## Introduction
+</div>
 
-**Glowify** - is a glow-infused Spicetify theme for Spotify featuring a modern, luminous interface and smooth animations.
+> **Originally created by [NMW](https://github.com/NMWplays).**
+> This community fork, maintained by [kr1zk](https://github.com/kr1zk), adds local video backgrounds and interface fixes for Spotify 1.3.6.1921.g7086c071a617.
+> Visit the [original Glowify repository](https://github.com/NMWplays/Glowify) for NMW's work.
 
-If your transparent controls don’t look fully transparent — for example when zooming in on Spotify — you can easily change the width and height of them in the Glowify Settings to make them fully transparent again.
 
-If you like the theme, consider starring the repository on GitHub! ⭐
 
-**For support join the Discord!**:
+## Features
 
-<a href="https://discord.gg/QRMnrgjhvq" target="_blank">
-  <img src="images/discord-icon.png" alt="Discord-server-link" width="64" />
-</a>
+**Glowify offers:**
+
+- Many customization options
+-  `Beatiful Lyrics`, `Spicy Lyrics` and `Lucid Lyrics` are supported by default
+- Beautiful dynamic colors (Just enable dynamic button colors in the settings and your good to go)
+- Modern, rounded UI
+- And much more!
+
+
 
 ## Theme screenshots
 
@@ -53,29 +55,44 @@ If you like the theme, consider starring the repository on GitHub! ⭐
 <img width="2559" height="1439" alt="Fullscreen-View2" src="https://github.com/user-attachments/assets/09acba08-3c50-44b3-b217-b25f300610b4" />
 </details>
 
----
 
-## Features
 
-**Glowify offers:**
-
-- Many customization options
--  `Beatiful Lyrics`, `Spicy Lyrics` and `Lucid Lyrics` are supported by default
-- Beautiful dynamic colors (Just enable dynamic button colors in the settings and your good to go)
-- Modern, rounded UI
-- And much more!
-
----
 
 ## Installation
 
-Want to install the theme manually? [Just click here](https://nmw.it.com/projects/glowify/installation/)
-And you will find a _detailed installation guide there_!
+You need the **Spotify desktop app** and [Spicetify](https://spicetify.app/). This fork targets **Spotify 1.3.6** with **Spicetify 2.45.3**.
+
+1. [Download this fork](https://github.com/kr1zk/Glowify/archive/refs/heads/main.zip) and extract it.
+2. Place the extracted folder in your Spicetify `Themes` directory and name it `Glowify-main`:
+
+   | Platform | Themes directory |
+   | --- | --- |
+   | Windows | `%APPDATA%\spicetify\Themes\` |
+   | Linux / macOS | `~/.config/spicetify/Themes/` |
+
+   The folder should contain `color.ini`, `user.css`, `theme.js`.
+   
+3. Run these commands in your terminal:
+
+   ```shell
+   spicetify config current_theme Glowify-main
+   spicetify apply
+   ```
+
+Open **Glowify Settings** in Spotify to customize the theme.
+
 
 ## Credits
 
-Created by NMW.
+- **[NMW](https://github.com/NMWplays)** — creator of the [original Liquify theme](https://github.com/NMWplays/Liquify).
+- **[kr1zk](https://github.com/kr1zk)** — maintenance of this fork, compatibility fixes, and video background support.
+- **[Sanoojes](https://github.com/sanoojes)** — creator of [Glassify](https://github.com/sanoojes/spicetify-glassify), which inspired Liquify.
+- **[Spicetify](https://spicetify.app/)** — the customization framework that makes this theme possible.
+
+Original Liquify/Glowify community: [Discord](https://discord.gg/QRMnrgjhvq).
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See the LICENSE file for details.
+Distributed under the [GNU Affero General Public License v3.0](LICENSE.txt).
+
+The bundled video converter includes third-party components with their own licenses and source references in [`assets/liquify-video`](assets/liquify-video/).
