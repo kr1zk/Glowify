@@ -1,3 +1,286 @@
+/* Glowify compatibility for Spotify's desktop web player.
+ * Restore only the semantic hooks consumed by Glowify. No hashed class names.
+ * Run before the upstream bundle so its layout/settings controllers find them.
+ */
+(() => {
+  if (window.glowifyCompatibility) return;
+  const rootClasses = {
+    'left-sidebar': 'Root__nav-bar',
+    'main-view': 'Root__main-view',
+    'right-sidebar': 'Root__right-sidebar',
+    'now-playing-bar': 'Root__now-playing-bar',
+    'cinema-view': 'Root__cinema-view'
+  };
+  const hooks = [
+    ['#main-view', 'Root__main-view'],
+    ['#Desktop_LeftSidebar_Id', 'Root__nav-bar'],
+    ['#global-nav-bar', 'Root__globalNav'],
+    // Stable hooks for the current desktop shell and Marketplace's tab portal.
+    ['[data-testid="topbar-content-wrapper"]', 'main-topBar-topbarContentWrapper'],
+    ['.main-globalNav-historyButtonsWrapper > div:has(> button + button)', 'main-globalNav-historyButtons'],
+    ['#Desktop_LeftSidebar_Id .YourLibraryX', 'main-yourLibraryX-libraryContainer'],
+    ['#Desktop_LeftSidebar_Id [role="search"] > button', 'x-filterBox-expandButton'],
+    ['[data-testid="settings-page"]', 'x-settings-container'],
+    ['[data-testid="settings-page"] > div:has(h2):has([data-settings-row])', 'x-settings-section'],
+    ['[data-testid="settings-page"] select', 'main-dropDown-dropDown'],
+    ['[data-testid="CoverSlotCollapsed__container"]', 'main-coverSlotCollapsed-container'],
+    ['[data-testid="player-controls"]', 'player-controls'],
+    ['[data-testid="CoverSlotCollapsed__container"] [data-testid="cover-art-button"]', 'main-nowPlayingWidget-coverArtContainer'],
+    ['[data-testid="CoverSlotCollapsed__container"] img', 'cover-art-image'],
+    ['[data-testid="now-playing-bar"] > .encore-bright-accent-set', 'main-connectBar-connectBar'],
+    ['[data-testid="user-widget-link"]', 'main-userWidget-box'],
+    ['[data-top-bar-search]', 'main-topBar-searchBar'],
+    ['[data-npv-root]', 'main-nowPlayingView-nowPlayingView'],
+    ['[data-npv-root] > :first-child', 'main-nowPlayingView-headerWrapper'],
+    ['[data-npv-root] section:not(.liquid-lyrics-sidebar-card)', 'main-nowPlayingView-section'],
+    ['[data-testid="cover-art-slot"]', 'main-nowPlayingView-coverArt'],
+    ['[data-testid="cover-art-slot"] img', 'cover-art-image'],
+    ['[data-testid="tracklist-row"]', 'main-trackList-trackListRow'],
+    ['[data-testid="tracklist-header"]', 'main-trackList-trackListHeader'],
+    ['[role="grid"] [data-scroll-size-invariant-class]:has([role="columnheader"])', 'main-trackList-trackListHeader'],
+    ['[role="row"] > [role="presentation"][draggable="true"]', 'main-trackList-trackListRow'],
+    ['[data-encore-id="card"]', 'main-card-card'],
+    ['[data-testid="action-bar"]', 'main-actionBar-ActionBar'],
+    ['[data-testid="entity-header"]', 'main-entityHeader-container'],
+    ['[data-testid="entity-header"] > .contentSpacing', 'main-entityHeader-contentWrapper'],
+    ['[data-testid="entity-header"] > div:empty', 'main-entityHeader-backgroundColor'],
+    ['[data-testid="topbar"] > div:first-child:not(:has(button))', 'main-topBar-background'],
+    ['[data-testid="topbar"] > div:first-child > div:empty', 'main-topBar-overlay'],
+    ['[data-testid="home-page"]', 'glowify-home-page'],
+    ['[data-testid="home-page"]', 'main-home-content'],
+    ['#context-menu > div:has(> [role="menu"])', 'glowify-popup-surface'],
+    ['#context-menu > [role="menu"]', 'glowify-popup-surface'],
+    ['[role="menu"]:not(#context-menu [role="menu"])', 'glowify-popup-surface'],
+    ['[role="menu"]', 'glowify-menu'],
+    ['dialog', 'glowify-dialog'],
+    ['[role="dialog"]:not(#glowify-settings-react-overlay)', 'glowify-dialog']
+  ];
+  let queued = false;
+  let scans = 0;
+  const add = (el, name) => {
+    if (el && !el.classList.contains(name)) el.classList.add(name);
+  };
+  function syncSettings() {
+    const settings = {
+      'compact-player': ['glowify-compact-player', 'off', 'on'],
+      'transparent-player': ['glowify-transparent-player', 'off', 'on'],
+      'floating-player': ['glowify-floating-player', 'off', 'on'],
+      'boxed-home': ['glowify-home-layout', 'off', 'on'],
+      'no-header-box': ['glowify-playlist-header-mode', 'show', 'hide'],
+      'no-action-box': ['glowify-action-bar-box-mode', 'show', 'hide']
+    };
+    for (const [name, [key, fallback, enabled]] of Object.entries(settings)) {
+      document.documentElement.classList.toggle(`glowify-${name}`, (localStorage.getItem(key) || fallback) === enabled);
+    }
+  }
+  function reconcile() {
+    queued = false;
+    scans++;
+    syncSettings();
+    const root = document.querySelector('.Root__top-container');
+    if (root) for (const el of root.children) {
+      if (!(el instanceof HTMLElement) || el.className.startsWith('glowify-')) continue;
+      const area = getComputedStyle(el).gridArea;
+      for (const [key, name] of Object.entries(rootClasses)) {
+        // Exact grid areas only: spanning modal/popover layers must not be themed as panels.
+        if (area === key || area === `${key} / ${key} / ${key} / ${key}`) add(el, name);
+      }
+    }
+    for (const [selector, name] of hooks) document.querySelectorAll(selector).forEach(el => add(el, name));
+    // Encore library rows no longer contain an anchor. Their accessible title
+    // still carries the collection URI, independent of the interface language.
+    document.querySelectorAll([
+      '#Desktop_LeftSidebar_Id a[href="/collection/local-files"]',
+      '#Desktop_LeftSidebar_Id [data-encore-id="listRow"][aria-labelledby$=":local-files"]',
+      '#Desktop_LeftSidebar_Id [data-encore-id="card"][aria-labelledby*=":local-files"]'
+    ].join(',')).forEach(link => {
+      const item = link.closest('[role="row"], [data-encore-id="listRow"], [data-encore-id="card"]') || link;
+      for (const el of item.querySelectorAll('div, span')) {
+        if (el.classList.contains('glowify-local-files-fill') || el.closest('button') || el.querySelector('img')) continue;
+        const style = getComputedStyle(el);
+        if (style.backgroundImage === 'none' && style.backgroundColor.startsWith('rgb(')) add(el, 'glowify-local-files-fill');
+      }
+    });
+    // Expanded Now Playing spans three grid areas instead of declaring cinema-view.
+    // Its media-mode radio group is a stable, locale-independent identifier.
+    document.querySelectorAll('button[role="radio"][value="artwork"]').forEach(button => {
+      let panel = button;
+      while (panel.parentElement && panel.parentElement !== root) panel = panel.parentElement;
+      if (panel.parentElement === root) {
+        add(panel, 'Root__cinema-view');
+        add(panel, 'glowify-expanded-npv');
+        const playingCover = document.querySelector('[data-testid="CoverSlotCollapsed__container"] img')?.src;
+        const imageKey = src => src?.replace(/^.*(?:\/image\/|spotify:image:)(?:ab67616d|ab676161)[0-9a-f]{8}/i, '');
+        for (const image of panel.querySelectorAll('img')) {
+          if (image.closest('section')) continue;
+          const rect = image.getBoundingClientRect();
+          // The URI scheme and rendition prefix differ between these surfaces.
+          if (playingCover && imageKey(image.src) === imageKey(playingCover) && rect.width > 240 && rect.height > 240) {
+            add(image, 'cover-art-image');
+            add(image.parentElement, 'cover-art');
+          }
+        }
+        for (const heading of panel.querySelectorAll('h2')) {
+          let card = heading.parentElement;
+          while (card && card !== panel && !card.hasAttribute('data-overlayscrollbars')) {
+            const background = getComputedStyle(card).backgroundColor;
+            if (background !== 'rgba(0, 0, 0, 0)' && getComputedStyle(card).backgroundImage === 'none') add(card, 'glowify-expanded-card');
+            card = card.parentElement;
+          }
+        }
+      }
+    });
+    document.querySelectorAll('.canvasVideoContainerNPV').forEach(el => add(el.parentElement, 'main-nowPlayingView-canvasVisualEnhancement'));
+    document.querySelectorAll('[data-top-bar-search]').forEach(el => add(el.closest('form'), 'glowify-search'));
+    document.querySelectorAll('[data-testid="shortcut-background"]').forEach(el => add(el.parentElement, 'view-homeShortcutsGrid-shortcut'));
+    document.querySelectorAll('[data-testid="CoverSlotCollapsed__container"] img').forEach(el => add(el.parentElement, 'cover-art'));
+    document.querySelectorAll('[data-testid="cover-art-slot"]').forEach(el => add(el.parentElement, 'main-nowPlayingView-coverArtContainer'));
+    document.querySelectorAll('[data-testid="now-playing-bar"]').forEach(el => {
+      if (el.parentElement?.parentElement === root) add(el.parentElement, 'Root__now-playing-bar');
+    });
+    document.querySelectorAll('[data-npv-root]').forEach(panel => {
+      // Canvas replaces the artwork slot completely. Locate the metadata by its
+      // text links and controls, so both artwork and video layouts receive hooks.
+      let info = null;
+      for (const link of panel.querySelectorAll('a[href^="/album/"], a[href^="/track/"], a[href^="/episode/"]')) {
+        if (!link.textContent.trim() || link.closest('section')) continue;
+        for (let candidate = link.parentElement; candidate && candidate !== panel; candidate = candidate.parentElement) {
+          if (candidate.querySelector('section') || candidate.hasAttribute('data-overlayscrollbars-viewport')) break;
+          if (candidate.querySelector('button') && candidate.querySelector('a[href^="/artist/"], a[href^="/show/"]')) { info = candidate; break; }
+        }
+        if (info) break;
+      }
+      const wrapper = info?.parentElement;
+      if (info) add(info, 'main-nowPlayingView-trackInfo');
+      // Liquid Lyrics still uses these semantic test IDs to mount its sidebar card.
+      // Add hooks to the existing content column without moving React's nodes.
+      if (wrapper && !wrapper.hasAttribute('data-testid')) wrapper.setAttribute('data-testid', 'NPV_Panel_OpenDiv');
+      if (info && !info.hasAttribute('data-testid')) info.setAttribute('data-testid', 'track-visual-enhancement');
+      if (wrapper) for (const group of wrapper.children) {
+        if (group.id === 'liquid-lyrics-sidebar-card') continue;
+        for (const card of group.children) if (card.querySelector('h2')) add(card, 'main-nowPlayingView-section');
+      }
+    });
+    // Native cards now paint solid inner wrappers as well as the outer section.
+    // Keep photos, gradients and interactive controls; clear only opaque fills.
+    document.querySelectorAll('.main-nowPlayingView-section div, .glowify-expanded-card div').forEach(el => {
+      if (el.classList.contains('glowify-card-body') || el.closest('button, [role="button"], .liquid-lyrics-sidebar-card')) return;
+      const style = getComputedStyle(el);
+      if (style.backgroundImage === 'none' && style.backgroundColor.startsWith('rgb(')) add(el, 'glowify-card-body');
+    });
+    // Artist biography now uses a native <dialog>, including solid verification
+    // cards. Give those surfaces the theme tint without altering its photo gallery.
+    document.querySelectorAll('dialog[open] div').forEach(el => {
+      if (el.classList.contains('glowify-dialog-card') || el.closest('button, [role="button"]')) return;
+      const style = getComputedStyle(el);
+      if (style.backgroundImage === 'none' && style.backgroundColor.startsWith('rgb(') &&
+          parseFloat(style.borderRadius) > 0) add(el, 'glowify-dialog-card');
+    });
+    document.documentElement.classList.toggle('glowify-artist-page', !!document.querySelector('[data-testid="artist-page"]'));
+    document.documentElement.classList.toggle('glowify-search-page', /^\/search(?:\/|$)/.test(window.Spicetify?.Platform?.History?.location?.pathname || ''));
+    add(document.documentElement, 'glowify-compatible');
+    window.glowifyCompatibility.lyrics?.();
+  }
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    setTimeout(reconcile, 80);
+  }
+  const observer = new MutationObserver(records => {
+    if (records.some(record => record.type === 'childList' ||
+      (record.type === 'attributes' && !record.target.closest('#glowify-filter-host, #glowify-bulk-filter-host')))) schedule();
+  });
+  function start() {
+    // Spotify can replace <body> while its shell boots. Observe the persistent
+    // document root so hooks also reach routes mounted after that replacement.
+    observer.observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id', 'data-testid', 'src']});
+    reconcile();
+  }
+  window.glowifyCompatibility = {version: '1.3.6-port.1', refresh: reconcile, syncSettings, get scans() { return scans; }};
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once: true});
+  else start();
+})();
+
+/* Spicetify 2.45.3 can resolve the collection-only MenuItem instead of Spotify's
+ * adaptive wrapper. Injecting that item into a legacy menu crashes the whole menu.
+ * Select the existing adaptive export by its capabilities, without module IDs.
+ */
+(() => {
+  let attempts = 0;
+  function install() {
+    const components = window.Spicetify?.ReactComponent;
+    const current = components?.MenuItem;
+    if (!current) {
+      if (++attempts < 240) setTimeout(install, 250);
+      return;
+    }
+    if (!String(current).includes('shouldCloseOnSelect')) return;
+    const queue = window.rspackChunk || window.rspackChunkclient_web || window.webpackChunkclient_web;
+    if (!queue) return;
+    try {
+      // The same runtime entry point used by Spicetify's own module resolver.
+      const require = queue.push([[Symbol('glowify-menu-compat')], {}, runtime => runtime]);
+      if (typeof require !== 'function' || !require.m) return;
+      const matches = Object.entries(require.m).filter(([, factory]) =>
+        ['handleMouseEnter', 'menuItemButton', 'onMouseMove', 'showFullTextOnHover']
+          .every(marker => String(factory).includes(marker)));
+      if (matches.length !== 1) return;
+      const candidates = Object.values(require(matches[0][0])).filter(value =>
+        typeof value === 'function' &&
+        ['showFullTextOnHover', 'forceV2LeadingIcon', 'onMouseEnter', 'children']
+          .every(marker => String(value).includes(marker)) &&
+        !String(value).includes('shouldCloseOnSelect'));
+      if (candidates.length !== 1) return;
+      components.MenuItem = candidates[0];
+      window.glowifyCompatibility.menuItem = 'adaptive';
+    } catch (error) {
+      console.warn('[Glowify] Menu compatibility detection skipped:', error);
+    }
+  }
+  install();
+})();
+
+// Spotify exposes lyric state through its CSS color tokens, even when classes change.
+(() => {
+  let sheetCount = -1;
+  let activeSelectors = [];
+  function readSelectors() {
+    if (sheetCount === document.styleSheets.length && activeSelectors.length) return;
+    sheetCount = document.styleSheets.length;
+    activeSelectors = [];
+    const walk = rules => {
+      for (const rule of rules) {
+        if (rule.selectorText && rule.style?.color === 'var(--lyrics-color-active)') {
+          // Exclude :hover and descendant rules: they do not denote the current line.
+          for (const selector of rule.selectorText.split(',')) {
+            if (/^\.[\w.-]+$/.test(selector.trim())) activeSelectors.push(selector.trim());
+          }
+        }
+        if (rule.cssRules) walk(rule.cssRules);
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      if (!sheet.href || sheet.href.includes('user.css')) continue;
+      try { walk(sheet.cssRules); } catch { /* Cross-origin styles are unrelated. */ }
+    }
+  }
+  window.glowifyCompatibility.lyrics = () => {
+    const root = document.querySelector('#main-view main > [style*="--lyrics-color-active"]');
+    if (!root) return;
+    readSelectors();
+    if (!root.classList.contains('glowify-native-lyrics')) root.classList.add('glowify-native-lyrics');
+    for (const line of root.querySelectorAll('div[dir="auto"]')) {
+      const text = line.firstElementChild;
+      if (!text || text.tagName !== 'DIV' || text.children.length || text.hasAttribute('data-encore-id')) continue;
+      if (!line.classList.contains('lyrics-lyricsContent-lyric')) line.classList.add('lyrics-lyricsContent-lyric');
+      if (!text.classList.contains('lyrics-lyricsContent-text')) text.classList.add('lyrics-lyricsContent-text');
+      line.classList.toggle('glowify-lyric-spacer', !text.textContent.trim());
+      line.classList.toggle('lyrics-lyricsContent-active', activeSelectors.some(selector => line.matches(selector)));
+    }
+  };
+})();
+
+
 "use strict";
 (() => {
   // node_modules/@kawarp/core/dist/index.js
@@ -746,7 +1029,9 @@
     return style;
   }
   function updateStyle(id, css) {
-    ensureStyleTag(id).textContent = css;
+    const style = ensureStyleTag(id);
+    if (style.textContent !== css) style.textContent = css;
+    window.glowifyCompatibility?.syncSettings();
   }
   function hasMountedCanvasMedia(el) {
     if (!el) return false;
@@ -1653,7 +1938,7 @@
   var START_CLASS = "glowify-popup-bounce--start";
   var RUN_CLASS = "glowify-popup-bounce--run";
   var CLONE_CLASS = "glowify-popup-clone";
-  var POPUP_SELECTOR = ".main-contextMenu-menu, .NJh1B8rnlSUlK7sY, .xamNkt5LX9o8aL1q";
+  var POPUP_SELECTOR = '[role="menu"], #search-dropdown, .main-contextMenu-menu';
   function ensureStyle() {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement("style");
@@ -4038,7 +4323,7 @@
   function applyAccent2(color) {
     document.documentElement.style.setProperty("--spice-button", color);
     document.documentElement.style.setProperty("--spice-button-active", color);
-    document.documentElement.style.setProperty("--background-highlight", color);
+    // Accent belongs to controls, not Spotify surface tokens.
     document.documentElement.style.setProperty("--glowify-accent", color);
     const css = `
     .AZ6uIUy8_YPogVERteBi:hover .r9ZhqDYZeNTrb4R4Te8W { fill: ${color} !important; }
@@ -4077,7 +4362,7 @@
   function resetAccentToDefault() {
     document.documentElement.style.setProperty("--spice-button", "");
     document.documentElement.style.setProperty("--spice-button-active", "");
-    document.documentElement.style.setProperty("--background-highlight", "");
+    document.documentElement.style.removeProperty("--background-highlight");
     document.documentElement.style.setProperty("--glowify-accent", "");
     const css = `
     .AZ6uIUy8_YPogVERteBi:hover .r9ZhqDYZeNTrb4R4Te8W { fill: #3be477; }
@@ -4121,25 +4406,12 @@
     const style = ensureStyleTag("glowify-artist-scroll-effect");
     const brightnessVal = (brightness / 100).toFixed(2);
     style.textContent = `
-@keyframes BKunRzRbjJ8Sj3or {
-  0% {
-    filter: blur(0px) brightness(${brightnessVal});
-  }
-  80% {
-    -webkit-transform: scale(2);
-    transform: scale(2);
-    filter: blur(${blur}px) brightness(${brightnessVal});
-  }
+.glowify-artist-page #main-view .before-scroll-node [data-testid="background-image"] {
+  animation-name: glowify-artist-scroll !important;
 }
-@keyframes PM3yG5WWpg8FtBiq {
-  0% {
-    filter: blur(0px) brightness(${brightnessVal});
-  }
-  80% {
-    -webkit-transform: scale(2);
-    transform: scale(2);
-    filter: blur(${blur}px) brightness(${brightnessVal});
-  }
+@keyframes glowify-artist-scroll {
+  0% { filter: blur(0px) brightness(${brightnessVal}); transform: scale(1); }
+  80%, 100% { filter: blur(${blur}px) brightness(${brightnessVal}); transform: scale(2); }
 }`;
   }
   function ensureArtistScrollEffectApplied() {
@@ -4160,9 +4432,10 @@
   async function applyCustomArtistBackground(file) {
     const img = await fileToBase64(file);
     const tmpImg = new Image();
-    tmpImg.src = img;
-    await new Promise((r) => {
-      tmpImg.onload = () => r();
+    await new Promise((resolve, reject) => {
+      tmpImg.onload = resolve;
+      tmpImg.onerror = () => reject(new Error('Unable to decode artist image'));
+      tmpImg.src = img;
     });
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -4215,185 +4488,24 @@
     window.dispatchEvent(new Event("glowifyBackgroundChange"));
   }
   function installArtistBackgroundController() {
-    const ORIGINALS = /* @__PURE__ */ new WeakMap();
-    const ART_SELECTOR = ".jiWxWueoicolJZnS";
-    const STORAGE_KEY_MODE = "glowify-artist-bg-mode";
-    const STORAGE_KEY_CUSTOM = "glowify-artist-bg-image";
-    const STORAGE_KEY_URL = "glowify-artist-bg-url";
-    const getSavedMode = () => localStorage.getItem(STORAGE_KEY_MODE) || "theme";
-    const setSavedMode = (mode) => localStorage.setItem(STORAGE_KEY_MODE, mode);
-    const getCustomImage = () => localStorage.getItem(STORAGE_KEY_CUSTOM);
-    const getCustomUrl = () => localStorage.getItem(STORAGE_KEY_URL);
-    function isArtistPage() {
-      try {
-        return location && location.pathname && location.pathname.includes("/artist") || !!document.querySelector(ART_SELECTOR);
-      } catch {
-        return false;
-      }
-    }
-    function getImgElem(el) {
-      if (!el) return null;
-      if (el.tagName === "IMG") return el;
-      return el.querySelector?.("img") ?? null;
-    }
-    function saveOriginalIfNeeded(el) {
-      if (ORIGINALS.has(el)) return;
-      const img = getImgElem(el);
-      if (img) ORIGINALS.set(el, { type: "img", src: img.src || "" });
-      else {
-        const inlineBg = el.style.backgroundImage;
-        if (inlineBg) ORIGINALS.set(el, { type: "bg", bg: inlineBg });
-        else ORIGINALS.set(el, { type: "bg", bg: getComputedStyle(el).backgroundImage || "" });
-      }
-    }
-    function restoreOriginal(el) {
-      if (!ORIGINALS.has(el)) return;
-      const orig = ORIGINALS.get(el);
-      const img = getImgElem(el);
-      if (orig.type === "img" && img) img.src = orig.src || "";
-      else if (orig.type === "bg") {
-        const html = el;
-        html.style.backgroundImage = orig.bg || "";
-        html.style.backgroundRepeat = "";
-        html.style.backgroundSize = "";
-        html.style.backgroundPosition = "";
-      }
-    }
+    // Style the current artwork without replacing React-owned elements or src.
+    // The rule survives route changes and does not need a document-wide observer.
     function applyMode(mode) {
-      if (!isArtistPage()) return;
-      const nodes = document.querySelectorAll(ART_SELECTOR);
-      if (!nodes || nodes.length === 0) return;
-      const customImage = getCustomImage();
-      const customUrl = getCustomUrl();
-      nodes.forEach((el) => {
-        try {
-          saveOriginalIfNeeded(el);
-          const img = getImgElem(el);
-          el.style.opacity = "0";
-          if (mode === "theme") {
-            restoreOriginal(el);
-            el.style.opacity = "1";
-          } else if (mode === "custom" && customImage) {
-            if (img) img.src = customImage;
-            else {
-              const html = el;
-              html.style.backgroundImage = `url("${customImage}")`;
-              html.style.backgroundRepeat = "no-repeat";
-              html.style.backgroundSize = "cover";
-              html.style.backgroundPosition = "center center";
-            }
-            el.style.opacity = "1";
-          } else if (mode === "url" && customUrl) {
-            if (img) img.src = customUrl;
-            else {
-              const html = el;
-              html.style.backgroundImage = `url("${customUrl}")`;
-              html.style.backgroundRepeat = "no-repeat";
-              html.style.backgroundSize = "cover";
-              html.style.backgroundPosition = "center center";
-            }
-            el.style.opacity = "1";
-          }
-        } catch (err) {
-          console.warn("applyMode element error", err);
-        }
-      });
+      const selector = '.glowify-artist-page #main-view .before-scroll-node [data-testid="background-image"]';
+      const source = mode === 'custom' ? localStorage.getItem('glowify-artist-bg-image') :
+        mode === 'url' ? localStorage.getItem('glowify-artist-bg-url') : '';
+      const css = mode === 'none' ? selector + ' { opacity: 0 !important; }' :
+        source ? selector + ' { background-image: url(' + JSON.stringify(source) + ') !important; background-size: cover; background-position: center; }' : '';
+      updateStyle('glowify-artist-background', css);
     }
-    function applySavedModeIfArtist() {
-      if (!isArtistPage()) return;
-      applyMode(getSavedMode());
-    }
-    const bodyObserver = new MutationObserver((mutations) => {
-      let artistFound = false;
-      for (const m2 of mutations) {
-        if (m2.addedNodes && m2.addedNodes.length) {
-          for (const n of Array.from(m2.addedNodes)) {
-            if (!n || n.nodeType !== 1) continue;
-            if (!artistFound && (n.matches && n.matches(ART_SELECTOR) || n.querySelector && n.querySelector(ART_SELECTOR))) {
-              artistFound = true;
-            }
-          }
-        }
-        if (!artistFound && m2.type === "attributes" && m2.target?.matches?.(ART_SELECTOR)) artistFound = true;
-      }
-      if (artistFound) {
-        const obsAny = bodyObserver;
-        if (obsAny._debounce) clearTimeout(obsAny._debounce);
-        obsAny._debounce = setTimeout(() => {
-          applySavedModeIfArtist();
-          obsAny._debounce = null;
-        }, 60);
-      }
-    });
-    function startObservers() {
-      if (!document.body) return false;
-      bodyObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["style", "src", "class"]
-      });
-      return true;
-    }
-    (function hookHistory() {
-      const wrap = (fn) => {
-        const orig = history[fn];
-        history[fn] = function(...args) {
-          const res = orig.apply(this, args);
-          setTimeout(() => {
-            if (isArtistPage()) applySavedModeIfArtist();
-          }, 80);
-          return res;
-        };
-      };
-      try {
-        wrap("pushState");
-        wrap("replaceState");
-      } catch {
-      }
-      window.addEventListener("popstate", () => setTimeout(() => isArtistPage() && applySavedModeIfArtist(), 80));
-    })();
-    (function installBgChangeHandler() {
-      const RETRY_COUNT = 4;
-      const RETRY_DELAY = 80;
-      let debounceTimer = null;
-      async function doApplyCustomWithRetries() {
-        if (getSavedMode() !== "custom") return;
-        if (!isArtistPage()) return;
-        for (let i2 = 0; i2 < RETRY_COUNT; i2++) {
-          try {
-            applyMode("custom");
-          } catch (e) {
-            console.warn("applyMode(custom) failed", i2, e);
-          }
-          await sleep(RETRY_DELAY);
-        }
-      }
-      const anyWin = window;
-      window.removeEventListener("glowifyBackgroundChange", anyWin._glowifyArtistBgHandler || (() => {
-      }));
-      anyWin._glowifyArtistBgHandler = () => {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          doApplyCustomWithRetries().catch(console.warn);
-          debounceTimer = null;
-        }, 60);
-      };
-      window.addEventListener("glowifyBackgroundChange", anyWin._glowifyArtistBgHandler);
-    })();
-    (function tryInit() {
-      if (!startObservers()) {
-        setTimeout(tryInit, 200);
-        return;
-      }
-      if (isArtistPage()) applySavedModeIfArtist();
-    })();
+    const applySavedModeIfArtist = () => applyMode(readLS('glowify-artist-bg-mode', 'theme'));
+    window.addEventListener('glowifyBackgroundChange', applySavedModeIfArtist);
+    applySavedModeIfArtist();
     return {
-      applyMode,
-      applySavedModeIfArtist,
-      setMode: (mode) => {
-        setSavedMode(mode);
-        applySavedModeIfArtist();
+      applyMode, applySavedModeIfArtist,
+      setMode(mode) {
+        localStorage.setItem('glowify-artist-bg-mode', mode);
+        applyMode(mode);
       }
     };
   }
@@ -6195,18 +6307,18 @@ ${DISC}::after {
     let nscBarObserver = null;
     let lastBarContainer = null;
     function watchBarContainer() {
-      const el = document.querySelector(".kUPoamhLb3kO_sjj.wRMAmo4RKCAZpoBA");
+      const el = getPlayerElement();
       if (el && el !== lastBarContainer) {
         lastBarContainer = el;
         if (nscBarObserver) nscBarObserver.disconnect();
         nscBarObserver = new MutationObserver(() => {
           if (!card) return;
-          const hidden = el.classList.contains("dwWT5Kw_H7IhSKjG");
+          const hidden = getComputedStyle(el).display === "none";
           card.style.display = hidden ? "none" : "";
         });
         nscBarObserver.observe(el, { attributes: true, attributeFilter: ["class"] });
         if (card) {
-          const hidden = el.classList.contains("dwWT5Kw_H7IhSKjG");
+          const hidden = getComputedStyle(el).display === "none";
           card.style.display = hidden ? "none" : "";
         }
       }
@@ -6232,134 +6344,59 @@ ${DISC}::after {
     blur: 7
   };
   function installNowPlayingViewCover() {
-    const TRACK_INFO_SEL = ".main-nowPlayingView-trackInfo.main-trackInfo-container";
-    const COVER_SOURCE_SEL = "img.main-image-image.cover-art-image";
-    const CANVAS_SEL = ".main-nowPlayingView-canvasVisualEnhancement";
-    const OUTSIDE_COVER_SEL = ".main-nowPlayingView-contextItemVisualEnhancement";
-    const OUTSIDE_STYLE_ID = "glowify-npv-outside-cover";
-    const OVER_CANVAS_STYLE_ID = "glowify-npv-over-canvas";
-    function getMode() {
-      return readLS(NPVC_MODE_KEY, NPVC_DEFAULTS.mode);
-    }
-    function getShowAlways() {
-      return readLS(NPVC_SHOW_ALWAYS_KEY, NPVC_DEFAULTS.showAlways) === "yes";
-    }
-    function getBlur() {
-      return readNum(NPVC_BLUR_KEY, NPVC_DEFAULTS.blur);
-    }
-    function isNpvVisible() {
-      const el = document.querySelector(CANVAS_SEL);
-      if (!hasMountedCanvasMedia(el)) return false;
-      const cs = window.getComputedStyle(el);
-      return cs.display !== "none" && cs.visibility !== "hidden";
-    }
-    function removeTrackInfoCover() {
-      const target = document.querySelector(TRACK_INFO_SEL);
-      if (!target) return;
-      const wrap = target.querySelector(".glowify-npv-row");
-      if (!wrap) return;
-      const text = wrap.querySelector(".glowify-npv-text");
-      if (text) {
-        while (text.firstChild) target.appendChild(text.firstChild);
-      }
-      wrap.remove();
-    }
-    function applyTrackInfo() {
-      const target = document.querySelector(TRACK_INFO_SEL);
-      const source = document.querySelector(COVER_SOURCE_SEL);
-      const name = target?.querySelector(".main-trackInfo-name");
-      const artists = target?.querySelector(".main-trackInfo-artists");
-      if (!target || !source || !name || !artists) return;
-      let wrap = target.querySelector(".glowify-npv-row");
-      let cover2 = target.querySelector(".glowify-npv-cover");
-      let text = target.querySelector(".glowify-npv-text");
-      if (!wrap) {
-        wrap = document.createElement("div");
-        wrap.className = "glowify-npv-row";
-        wrap.style.cssText = "display:flex;align-items:center;gap:12px;width:100%;min-width:0;";
-        cover2 = document.createElement("img");
-        cover2.className = "glowify-npv-cover";
-        cover2.style.cssText = "width:56px;height:56px;min-width:56px;object-fit:cover;border-radius:10px;display:block;";
-        cover2.draggable = false;
-        text = document.createElement("div");
-        text.className = "glowify-npv-text";
-        text.style.cssText = "display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1;overflow:hidden;";
-        name.style.minWidth = "0";
-        artists.style.minWidth = "0";
-        text.append(name, artists);
-        wrap.append(cover2, text);
-        target.replaceChildren(wrap);
-      }
-      if (cover2) cover2.src = source.src;
-    }
-    function removeOutsideCover() {
-      updateStyle(OUTSIDE_STYLE_ID, "");
-    }
-    function applyOutsideCover() {
-      updateStyle(OUTSIDE_STYLE_ID, OUTSIDE_COVER_SEL + " { opacity: 1 !important; width: 70px !important; }");
-    }
-    function removeOverCanvas() {
-      updateStyle(OVER_CANVAS_STYLE_ID, "");
-    }
-    function applyOverCanvas() {
-      const blur = getBlur();
-      updateStyle(OVER_CANVAS_STYLE_ID, [
-        ".main-nowPlayingView-coverArtContainer .main-nowPlayingView-coverArtVisualEnhancement { opacity: 1 !important; }",
-        ".main-nowPlayingView-coverArtVisualEnhancement { visibility: visible !important; }",
-        ".main-nowPlayingView-coverArtVisualEnhancement { left: 0 !important; opacity: 1 !important; padding-inline: 16px !important; position: absolute !important; right: 0 !important; z-index: 2 !important; }",
-        ".main-nowPlayingView-coverArtContainer { margin-top: 90px !important; }",
-        ".canvasVideoContainerNPV>video { filter: blur(" + blur + "px) !important; }"
-      ].join("\n"));
-    }
-    function removeAll() {
-      removeTrackInfoCover();
-      removeOutsideCover();
-      removeOverCanvas();
-    }
+    let scheduled = false;
     function apply() {
-      const mode = getMode();
-      if (mode === "off") {
-        removeAll();
-        return;
+      scheduled = false;
+      const panel = document.querySelector('[data-npv-root]');
+      const target = panel?.querySelector('.main-nowPlayingView-trackInfo');
+      const mode = readLS(NPVC_MODE_KEY, NPVC_DEFAULTS.mode);
+      const always = readLS(NPVC_SHOW_ALWAYS_KEY, NPVC_DEFAULTS.showAlways) === 'yes';
+      const video = panel?.querySelector('video');
+      const hasCanvas = !!video || hasMountedCanvasMedia(panel?.querySelector('.main-nowPlayingView-canvasVisualEnhancement'));
+      const src = panel?.querySelector('[data-testid="cover-art-slot"] img')?.src ||
+        document.querySelector('[data-testid="CoverSlotCollapsed__container"] img')?.src;
+      const enabled = !!target && !!src && mode !== 'off' && (mode === 'overCanvas' ? hasCanvas : always || hasCanvas);
+      const state = enabled ? mode : 'off';
+      if (panel && panel.dataset.glowifyCoverMode !== state) panel.dataset.glowifyCoverMode = state;
+      if (target && src) {
+        const value = `url(${JSON.stringify(src)})`;
+        if (target.style.getPropertyValue('--glowify-npv-image') !== value) target.style.setProperty('--glowify-npv-image', value);
+        if (panel.style.getPropertyValue('--glowify-npv-image') !== value) panel.style.setProperty('--glowify-npv-image', value);
       }
-      if (mode === "overCanvas") {
-        removeTrackInfoCover();
-        removeOutsideCover();
-        if (!isNpvVisible()) {
-          removeOverCanvas();
-          return;
+      updateStyle('glowify-npv-cover-compat', `
+        [data-npv-root][data-glowify-cover-mode="trackInfo"] .main-nowPlayingView-trackInfo,
+        [data-npv-root][data-glowify-cover-mode="outsideTrackInfo"] .main-nowPlayingView-trackInfo { position: relative; }
+        [data-glowify-cover-mode="trackInfo"] .main-nowPlayingView-trackInfo { padding-left: 84px !important; min-height: 80px; }
+        [data-glowify-cover-mode="outsideTrackInfo"] .main-nowPlayingView-trackInfo { margin-left: 82px; min-height: 80px; }
+        :is([data-glowify-cover-mode="trackInfo"], [data-glowify-cover-mode="outsideTrackInfo"]) .main-nowPlayingView-trackInfo::before {
+          content: ''; position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+          width: 56px; height: 56px; border-radius: 12px; background: var(--glowify-npv-image) center/cover;
+          pointer-events: none;
         }
-        applyOverCanvas();
-        return;
-      }
-      if (!getShowAlways() && !isNpvVisible()) {
-        removeAll();
-        return;
-      }
-      removeOverCanvas();
-      if (mode === "trackInfo") {
-        removeOutsideCover();
-        applyTrackInfo();
-      } else if (mode === "outsideTrackInfo") {
-        removeTrackInfoCover();
-        applyOutsideCover();
-      }
+        [data-glowify-cover-mode="outsideTrackInfo"] .main-nowPlayingView-trackInfo::before { left: -82px; width: 70px; height: 70px; }
+        [data-glowify-cover-mode="overCanvas"] video { filter: blur(${readNum(NPVC_BLUR_KEY, 7)}px) !important; }
+        [data-glowify-cover-mode="overCanvas"] .canvasVideoContainerNPV { position: relative; }
+        [data-glowify-cover-mode="overCanvas"] .canvasVideoContainerNPV::after {
+          content: ''; position: absolute; inset: 0; margin: auto; width: 80%; aspect-ratio: 1; max-height: 80%;
+          border-radius: 16px; background: var(--glowify-npv-image) center/contain no-repeat; z-index: 2; pointer-events: none;
+        }
+      `);
     }
-    (async () => {
-      while (!Spicetify?.Player?.addEventListener) await sleep(300);
-      Spicetify.Player.addEventListener("songchange", () => {
-        setTimeout(apply, 400);
-        setTimeout(apply, 1e3);
-      });
-    })();
-    window.addEventListener("glowifyNpvcUpdate", () => {
-      removeAll();
-      setTimeout(apply, 100);
+    function schedule() {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(apply);
+    }
+    new MutationObserver(records => {
+      if (records.some(r => r.type === 'childList' || r.attributeName === 'src')) schedule();
+    }).observe(document.querySelector('.Root__top-container') || document.body, {
+      childList: true, subtree: true, attributes: true, attributeFilter: ['src']
     });
+    window.addEventListener('glowifyNpvcUpdate', schedule);
+    Spicetify.Player.addEventListener('songchange', schedule);
     apply();
-    setTimeout(apply, 1e3);
-    setTimeout(apply, 3e3);
   }
+
 
   // src/settings/features/actionBarBox.ts
   var STYLE_ID4 = "glowify-action-bar-box-style";
@@ -6562,7 +6599,7 @@ ${DISC}::after {
   // src/settings/features/localFilesCard.ts
   var STYLE_ID7 = "glowify-local-files-style";
   var LOCAL_FILES_TRANSPARENT_KEY = "glowify-local-files-transparent";
-  var LOCAL_FILES_CARD = ".KmN1Y8bq8eC6k8TX";
+  var LOCAL_FILES_CARD = ".glowify-local-files-fill";
   function applyCss4() {
     const on = readLS(LOCAL_FILES_TRANSPARENT_KEY, "off") === "on";
     updateStyle(
@@ -6596,7 +6633,7 @@ ${DISC}::after {
     updateHomeLayoutCss(m2 === "on");
   }
   function applySavedHomeLayout() {
-    const saved = localStorage.getItem(HOME_LAYOUT_KEY) || "on";
+    const saved = localStorage.getItem(HOME_LAYOUT_KEY) || "off";
     updateHomeLayoutCss(saved === "on");
   }
 
@@ -7014,7 +7051,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
     const size = readNum(LYRICS_FONT_SIZE_KEY, LYRICS_FONT_SIZE_DEFAULT);
     const margin = readNum(LYRICS_MARGIN_KEY, LYRICS_MARGIN_DEFAULT);
     const css = themed ? `.lyrics-lyricsContent-lyric.lyrics-lyricsContent-active { font-size: ${size}px; }
-.lyrics-lyricsContent-lyric:not(.aLaX8poOH8kdbmGf) { margin-bottom: ${margin}px; }` : `.lyrics-lyricsContent-lyric:not(.aLaX8poOH8kdbmGf) { margin-bottom: .6em; }`;
+.lyrics-lyricsContent-lyric:not(.glowify-lyric-spacer) { margin-bottom: ${margin}px; }` : `.lyrics-lyricsContent-lyric:not(.glowify-lyric-spacer) { margin-bottom: .6em; }`;
     updateStyle("glowify-themed-lyrics", css);
   }
   function setThemedLyrics(on) {
@@ -7233,7 +7270,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
         let lastHeight = rectHeight;
         const start2 = performance.now();
         function animate() {
-          if (!lastSvg || !lastIndicator) return;
+          if (lastSvg !== wrapper || !lastIndicator || !wrapper.isConnected) return;
           const parentNode = lastIndicator.parentNode;
           if (!parentNode) {
             try {
@@ -7280,7 +7317,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
       }
       async function updateIndicator() {
         const indicator = document.querySelector(
-          ".POVCTaiu08g8SWXr, [data-playing-indicator]"
+          '[data-testid="tracklist-row"] img[src*="/equaliser-"], [role="row"] img[src*="/equaliser-"], [data-playing-indicator]'
         );
         if (!indicator) {
           if (lastSvg) {
@@ -7307,7 +7344,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
         const parentNode = indicator.parentNode;
         const playButton = parentNode.querySelector?.(".main-trackList-rowImagePlayButton");
         const isPlaying2 = Spicetify.Player.isPlaying() && (!playButton || window.getComputedStyle(playButton).opacity === "0");
-        if (lastSvg && !isPlaying2) {
+        if (lastSvg && (!isPlaying2 || !lastSvg.isConnected)) {
           try {
             lastSvg.remove();
           } catch {
@@ -7315,7 +7352,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
           lastSvg = null;
           lastIndicator = null;
         }
-        if (indicator !== lastIndicator) createBars(indicator);
+        if (isPlaying2 && indicator !== lastIndicator) createBars(indicator);
         return true;
       }
       Spicetify.Player.addEventListener("songchange", () => {
@@ -7335,7 +7372,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
   function installHomeScreenVisualizer() {
     (function() {
       const homeSvgs = /* @__PURE__ */ new Map();
-      let wasPlaying = false;
+      let wasPlaying = Spicetify.Player.isPlaying();
       function createHomeVisualizer(img) {
         if (homeSvgs.has(img)) return;
         const parent = img.parentNode;
@@ -7372,16 +7409,18 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
             phase: Math.random() * Math.PI * 2
           });
         }
+        const originalStyle = img.getAttribute("style");
         parent.insertBefore(wrapper, img);
         img.style.visibility = "hidden";
         img.style.width = "0px";
         img.style.height = "0px";
         img.style.margin = "0";
         img.style.padding = "0";
-        homeSvgs.set(img, { wrapper, bars, img, parent, lastHeight: imgHeight });
+        homeSvgs.set(img, { wrapper, bars, img, parent, originalStyle, lastHeight: imgHeight });
       }
       function updateHomeScreenVisualizer() {
-        document.querySelectorAll("img.view-homeShortcutsGrid-equaliserImage").forEach((img) => {
+        if (!Spicetify.Player.isPlaying()) return;
+        document.querySelectorAll('[data-testid="home-page"] img[src*="/equaliser-"], img.view-homeShortcutsGrid-equaliserImage').forEach((img) => {
           const im = img;
           if (!homeSvgs.has(im)) createHomeVisualizer(im);
         });
@@ -7432,6 +7471,8 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
           for (const [, data] of homeSvgs.entries()) {
             try {
               data.wrapper?.remove();
+              if (data.originalStyle === null) data.img.removeAttribute("style");
+              else data.img.setAttribute("style", data.originalStyle);
             } catch {
             }
           }
@@ -10228,7 +10269,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
     const [npvcShowAlways, setNpvcShowAlways] = React.useState(readLS(NPVC_SHOW_ALWAYS_KEY, NPVC_DEFAULTS.showAlways));
     const [npvcBlur, setNpvcBlur] = React.useState(readNum(NPVC_BLUR_KEY, NPVC_DEFAULTS.blur));
     const [popupBounceMode, setPopupBounceMode] = React.useState(readLS(POPUP_BOUNCE_KEY, "on"));
-    const [homeLayout, setHomeLayout] = React.useState(readLS(HOME_LAYOUT_KEY, "on"));
+    const [homeLayout, setHomeLayout] = React.useState(readLS(HOME_LAYOUT_KEY, "off"));
     const [backdropBlur, setBackdropBlurState] = React.useState(readNum(BACKDROP_BLUR_KEY, BACKDROP_BLUR_DEFAULT));
     const [navRadius, setNavRadiusState] = React.useState(readNum(NAV_RADIUS_KEY, LAYOUT_RADIUS_DEFAULTS.nav));
     const [mainRadius, setMainRadiusState] = React.useState(readNum(MAIN_RADIUS_KEY, LAYOUT_RADIUS_DEFAULTS.main));
@@ -11276,6 +11317,10 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
   function createOverlay(onBackgroundClick) {
     const overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', getTranslation().settingsTitle || 'Glowify Settings');
+    overlay.tabIndex = -1;
     overlay.style.position = "fixed";
     overlay.style.inset = "0";
     overlay.style.zIndex = "99999";
@@ -11304,6 +11349,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
     } catch {
     }
     removeFloatingSettingsElements();
+    overlay._glowifyCleanup?.();
     overlay.remove();
   }
   function closeWithAnimation(overlay, root) {
@@ -11340,7 +11386,8 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
   }
   function openSettingsModal(artistCtrl) {
     ensureSettingsUiStyle();
-    document.getElementById(OVERLAY_ID)?.remove();
+    const previous = document.getElementById(OVERLAY_ID);
+    if (previous) unmountOverlay(previous);
     const overlay = createOverlay((target) => closeWithAnimation(target, root));
     const root = document.createElement("div");
     document.body.appendChild(overlay);
@@ -11348,6 +11395,31 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
     showOverlay(overlay);
     const onClose = () => closeWithAnimation(overlay, root);
     ReactDOM.render(/* @__PURE__ */ React.createElement(SettingsModalRoot, { onClose, artistCtrl }), root);
+    const previousFocus = document.activeElement;
+    const handleKey = (event) => {
+      if (!overlay.isConnected || event.defaultPrevented) return;
+      if (event.key === 'Escape') {
+        if (document.querySelector('.glowifySelectMenu, .glowifyLibraryOverlay')) return;
+        event.preventDefault();
+        onClose();
+      } else if (event.key === 'Tab') {
+        const elements = [...overlay.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')]
+          .filter(el => !el.disabled && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
+        const first = elements[0], last = elements.at(-1);
+        if (!first) { event.preventDefault(); overlay.focus(); }
+        else if (event.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    overlay._glowifyCleanup = () => {
+      document.removeEventListener('keydown', handleKey);
+      if (previousFocus?.isConnected) previousFocus.focus({preventScroll: true});
+    };
+    overlay.querySelector('input:not([type="file"]),button')?.focus({preventScroll: true});
   }
 
   // src/settings/index.tsx
@@ -11364,7 +11436,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
       localStorage.setItem("glowify-accent-mode", "dynamic");
     }
     if (mode === "custom") applyAccent2(color);
-    else if (mode === "dynamic") applyDynamicAccent();
+    else if (mode === "dynamic") { resetDynamicAccentCache(); applyDynamicAccent(); }
     else resetAccentToDefault();
   }
   function applySavedLayoutSettings() {
@@ -11423,7 +11495,7 @@ ${eachTransport(" svg")}, ${eachTransport(" path")} { fill: currentColor !import
   function installDynamicAccentObserver(anyWin) {
     if (anyWin.glowifyDynamicObserverTs) return;
     anyWin.glowifyDynamicObserverTs = new MutationObserver(pushDynamicAccent);
-    anyWin.glowifyDynamicObserverTs.observe(document.body, { attributes: true, subtree: true });
+    anyWin.glowifyDynamicObserverTs.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
     window.addEventListener("glowifyAccentColorReady", pushDynamicAccent);
   }
   function registerSettingsModal(artistCtrl) {
